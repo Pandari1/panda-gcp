@@ -59,16 +59,22 @@ pipeline {
                 }
             }
         }
+        
         stage('Publish To Nexus') {
             steps {
                 dir('FullStack-Blogging-App') {
-                    withMaven(
-                        globalMavenSettingsConfig: 'global-settings',
-                        jdk: 'jdk17',
-                        maven: 'maven3',
-                        traceability: true
-                    ) {
-                        sh 'mvn deploy -DskipTests'
+                    withCredentials([usernamePassword(
+                        credentialsId: 'nexus-cred',
+                        usernameVariable: 'NEXUS_USER',
+                        passwordVariable: 'NEXUS_PASS'
+                    )]) {
+                        withMaven(
+                            globalMavenSettingsConfig: 'global-settings',
+                            jdk: 'jdk17',
+                            maven: 'maven3'
+                        ) {
+                            sh 'mvn deploy -DskipTests'
+                        }
                     }
                 }
             }
