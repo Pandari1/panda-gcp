@@ -3,7 +3,7 @@ package com.example.twitterapp;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest(classes = TwitterAppApplication.class)
+@SpringBootTest
 class TwitterAppApplicationTests {
 
     @Test
