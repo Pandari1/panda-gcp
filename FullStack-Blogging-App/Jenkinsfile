@@ -13,7 +13,7 @@ pipeline {
     stages {
         stage('Git Checkout') {
             steps {
-               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/abrahimcse/FullStack-Blogging-App.git'
+               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/Pandari1/panda-gcp.git'
             }
         }
         stage('Compile') {
@@ -126,7 +126,7 @@ pipeline {
             emailext (
                 subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
                 body: body,
-                to: 'abrahim.ctech@gmail.com',
+                to: 'amgothpandari6@gmail.com',
                 from: 'jenkins@example.com',
                 replyTo: 'jenkins@example.com',
                 mimeType: 'text/html',
