@@ -120,7 +120,7 @@ pipeline {
                         restrictKubeConfigAccess: false,
                         serverUrl: 'https://34.57.72.69'
                     ) {
-                        sh "kubectl apply -f deployment-service.yaml"
+                        sh "kubectl apply -f deployment-service.yml"
                     }
                 }
             }
