@@ -54,7 +54,9 @@ pipeline {
         }
         stage('Build') {
             steps {
+                dir('FullStack-Blogging-App') {
                 sh "mvn package"
+                }
             }
         }
         stage('Publish To Nexus') {
