@@ -27,7 +27,7 @@ pipeline {
         stage('Test') {
             steps {
                 dir('FullStack-Blogging-App') {
-                sh "mvn test --DskipTests"
+                sh "mvn test -DskipTests"
                 }
             }
         }
