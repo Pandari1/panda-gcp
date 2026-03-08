@@ -84,7 +84,7 @@ pipeline {
                 dir('FullStack-Blogging-App') {
                     script {
                         withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker build -t abrahimcse/bloggingapp:latest ."
+                            sh "docker build -t pandu321/bloggingapp:latest ."
                         }
                     }
                 }
@@ -102,7 +102,7 @@ pipeline {
                 dir('FullStack-Blogging-App') {
                     script {
                         withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker push abrahimcse/bloggingapp:latest"
+                            sh "docker push pandu321/bloggingapp:latest"
                         }
                     }
                 }
