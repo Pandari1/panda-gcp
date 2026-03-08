@@ -18,13 +18,17 @@ pipeline {
         }
         stage('Compile') {
             steps {
+                dir('FullStack-Blogging-App') {
                 sh "mvn compile"
+                }
             }
         }
         
         stage('Test') {
             steps {
+                dir('FullStack-Blogging-App') {
                 sh "mvn test"
+                }
             }
         }
         
