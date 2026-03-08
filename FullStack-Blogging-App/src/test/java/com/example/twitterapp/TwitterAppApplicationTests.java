@@ -1,12 +1,13 @@
 package com.example.twitterapp;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootApplication
-public class TwitterAppApplication {
+@SpringBootTest(classes = TwitterAppApplication.class)
+class TwitterAppApplicationTests {
 
-    public static void main(String[] args) {
-        SpringApplication.run(TwitterAppApplication.class, args);
+    @Test
+    void contextLoads() {
     }
+
 }
