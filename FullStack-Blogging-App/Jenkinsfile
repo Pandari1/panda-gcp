@@ -1,151 +1,162 @@
 pipeline {
-    agent any
-    
-    tools {
-        jdk 'jdk17'
-        maven 'maven3'
-    }
-    
-    environment {
-        SCANNER_HOME = tool 'sonar-scanner'
+agent any
+
+```
+tools {
+    jdk 'jdk17'
+    maven 'maven3'
+}
+
+environment {
+    SCANNER_HOME = tool 'sonar-scanner'
+    IMAGE_NAME = "pandu321/bloggingapp:latest"
+}
+
+stages {
+
+    stage('Git Checkout') {
+        steps {
+            git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/Pandari1/panda-gcp.git'
+        }
     }
 
-    stages {
-        stage('Git Checkout') {
-            steps {
-               git branch: 'main', credentialsId: 'git-cred', url: 'https://github.com/Pandari1/panda-gcp.git'
-            }
-        }
-        stage('Compile') {
-            steps {
-                dir('FullStack-Blogging-App') {
+    stage('Compile') {
+        steps {
+            dir('FullStack-Blogging-App') {
                 sh "mvn compile -DskipTests"
-                }
             }
         }
-        
-        stage('Test') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                sh "mvn test -DskipTests"
-                }
+    }
+    
+    stage('Test') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                sh "mvn test"
             }
         }
-        
-        stage('File System Scan') {
-            steps {
+    }
+    
+    stage('File System Scan') {
+        steps {
+            dir('FullStack-Blogging-App') {
                 sh "trivy fs --format table -o trivy-fs-report.html ."
             }
         }
-        stage('SonarQube Analsyis') {
-            steps {
+    }
+
+    stage('SonarQube Analysis') {
+        steps {
+            dir('FullStack-Blogging-App') {
                 withSonarQubeEnv('sonar') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=bloggingapp -Dsonar.projectKey=bloggingapp \
-                            -Dsonar.java.binaries=. '''
+                    sh '''
+                    $SCANNER_HOME/bin/sonar-scanner \
+                    -Dsonar.projectName=bloggingapp \
+                    -Dsonar.projectKey=bloggingapp \
+                    -Dsonar.java.binaries=target
+                    '''
                 }
             }
         }
-        stage('Quality Gate') {
-            steps {
-                script {
-                  waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
-                }
+    }
+
+    stage('Quality Gate') {
+        steps {
+            script {
+                waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
             }
         }
-        stage('Build') {
-            steps {
-                dir('FullStack-Blogging-App') {
+    }
+
+    stage('Build') {
+        steps {
+            dir('FullStack-Blogging-App') {
                 sh "mvn package -DskipTests"
-                }
             }
         }
-        
-        stage('Publish To Nexus') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    withCredentials([usernamePassword(
-                        credentialsId: 'nexus-cred',
-                        usernameVariable: 'NEXUS_USER',
-                        passwordVariable: 'NEXUS_PASS'
-                    )]) {
-                        withMaven(
-                            globalMavenSettingsConfig: 'global-settings',
-                            jdk: 'jdk17',
-                            maven: 'maven3'
-                        ) {
-                            sh 'mvn deploy -DskipTests'
-                        }
-                    }
-                }
-            }
-        }
-        stage('Build & Tag Docker Image') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    script {
-                        withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker build -t pandu321/bloggingapp:latest ."
-                        }
-                    }
-                }
-            }
-        }
-        stage('Docker Image Scan') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    sh "trivy image --format table -o trivy-image-report.html abrahimcse/bloggingapp:latest "
-                }
-            }
-        }
-        stage('Push Docker Image') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    script {
-                        withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            sh "docker push pandu321/bloggingapp:latest"
-                        }
-                    }
-                }
-            }
-        }
-        stage('Deploy To Kubernetes') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    withKubeConfig(
-                        caCertificate: 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVMVENDQXBXZ0F3SUJBZ0lSQU9YQlVzSlg2ZDlSeHVndFN5OGZndzR3RFFZSktvWklodmNOQVFFTEJRQXcKTHpFdE1Dc0dBMVVFQXhNa05EWXdNVFU0TVRBdFpEQm1aaTAwT0RZd0xXSmhaV0V0TjJNMlpXSXhZekJsTmpjdwpNQ0FYRFRJMk1ETXdOekU1TlRRME1Gb1lEekl3TlRZd01qSTRNakExTkRRd1dqQXZNUzB3S3dZRFZRUURFeVEwCk5qQXhOVGd4TUMxa01HWm1MVFE0TmpBdFltRmxZUzAzWXpabFlqRmpNR1UyTnpBd2dnR2lNQTBHQ1NxR1NJYjMKRFFFQkFRVUFBNElCandBd2dnR0tBb0lCZ1FEYVNvY3NZVEpnYmdyMWoyc09hckVTME8rUkxyZUQvQUpkbmN1OApzbXViWENIK1pXMW5EU1h5R2NBeFBCRUt5c0VaMVp4MHRXcHA3ZDFmMGtqZTJPWEd5dS81OGUzM2xIb3BGa3lCCkhxUWNQTEg4NzQwWU1qcmxESW1ORWlIQk1NRmZjdDBKbEtWRE1Yays2cFk4d3NqN0VhUFl6Y2JZZlVWaUZmbmYKZVFTMm12dWdXU0xQUGxvdUd4b1BtdUtlTTkxakovZENpOVVQMTdLdldXb1BIaHlJbWE3U1d4RWFZdG1LYVZrZQpPOFZjYjVRc3JaeHR3YXZtTlNyRUh4bFFwNnFCQ3dDYTJ5SjF4U1NCQ0dQZHBzd1VQdHpJWmlnN2VVMjRIWkxxCmdrOGJrVG5WT2REaU56MVR3N3RqMGhUeWpTMVoyMTExa1R4YUJlR2wxRGx0ZFJ5TDRSSktrYmVSbjRFUWkwMm4KN3loRHRSQkFXSjB5OFY1b1Y0ZUsrTVplaVJWd1RKUVZlZDJvNEV5ZXNIWjZjYU1XQ05hRGxKTXdMRm9Da3VXaApiSWdUdDY0SGYzOXhTZVZIMDBhWGNkT001TGFETzgybDVTbTVYK2J4NDZidTJxVkZzTk5NUTNHd0Zpai9RRzA1CnZOcWFIUVVva2ttOFB2NmtOblZ4L3lRcU5Qa0NBd0VBQWFOQ01FQXdEZ1lEVlIwUEFRSC9CQVFEQWdJRU1BOEcKQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGSXh2VTE4ZFczWnh5QjBzUzE2ZXoxNHB5Q3ViTUEwRwpDU3FHU0liM0RRRUJDd1VBQTRJQmdRQlptQkRFcmdIM1JVWlRUVTBKdzUrRTVBTFhvL29UeC9EQWoyT0lvbHp2CjVvYStpdzlEUUROYTZKYnNIemJraDBsVHVJSWV4ekVHVmZpaXMvb0YzaFV3RW1VbldOdlQyWEh5bDQ2UzFqUkgKRm5QL1FXdzdldHd0WjFvcUt2WGVUdzcraGpqb1BjSWRPanhUM0hSWHR6bndwbU5zVG03RzZlSGZLc1Q5UE5BcApjZm9VZFcxVEc3R0FDanB3SGlDaGhmeUZ3RldWUGVXUGF6Smp6ZXI1ZWZhbXVQWUphOURQa1d5LzE3UDg4Zkk4Ckp3dy9oV3BPOGh1L0tDTURSRGs0Tk5lYTdmWG51c0NQMXBaTUxIYnJsTDVqb0Q2NlVrNENBOG5KdlB0NUVjekEKODdtdURJd1FSS1lsT0grdUJPOFJCQWJZWVdQdjE2TTQvUFNFZlpKeDZnMWNtaXh3WHBwN2RELzhDWmJ4VFd1MQpBVkt1OFdaK29UZlloZy8rdTI0aDNFQnNrNStrRzQ1RlI0Rkc4WitKZGQyd0c0ZEs1c3h0K0FSSU1ldUc4TkJOCjJwWFhxZzlnS3R6eHhwNUp6cElHdUJjMlArNFBUWkxFNVVMQnJkeUZveExqQlVQaXgxY3dBY0hsZTVTTjRsaEQKSUhqN3VPTlFBRzhGQS8yZVJRQ3dIRTg9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K',
-                        clusterName: 'gke_learning-487000_us-central1_panda-gke-cluster',
-                        contextName: 'gke_learning-487000_us-central1_panda-gke-cluster',
-                        credentialsId: 'k8-cred',
-                        namespace: 'webapps',
-                        restrictKubeConfigAccess: false,
-                        serverUrl: 'https://34.57.72.69'
+    }
+    
+    stage('Publish To Nexus') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-cred',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+                    withMaven(
+                        globalMavenSettingsConfig: 'global-settings',
+                        jdk: 'jdk17',
+                        maven: 'maven3'
                     ) {
-                        sh "kubectl apply -f deployment-service.yml"
-                    }
-                }
-            }
-        }
-        stage('Verify the Deployment') {
-            steps {
-                dir('FullStack-Blogging-App') {
-                    withKubeConfig(
-                        caCertificate: 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVMVENDQXBXZ0F3SUJBZ0lSQU9YQlVzSlg2ZDlSeHVndFN5OGZndzR3RFFZSktvWklodmNOQVFFTEJRQXcKTHpFdE1Dc0dBMVVFQXhNa05EWXdNVFU0TVRBdFpEQm1aaTAwT0RZd0xXSmhaV0V0TjJNMlpXSXhZekJsTmpjdwpNQ0FYRFRJMk1ETXdOekU1TlRRME1Gb1lEekl3TlRZd01qSTRNakExTkRRd1dqQXZNUzB3S3dZRFZRUURFeVEwCk5qQXhOVGd4TUMxa01HWm1MVFE0TmpBdFltRmxZUzAzWXpabFlqRmpNR1UyTnpBd2dnR2lNQTBHQ1NxR1NJYjMKRFFFQkFRVUFBNElCandBd2dnR0tBb0lCZ1FEYVNvY3NZVEpnYmdyMWoyc09hckVTME8rUkxyZUQvQUpkbmN1OApzbXViWENIK1pXMW5EU1h5R2NBeFBCRUt5c0VaMVp4MHRXcHA3ZDFmMGtqZTJPWEd5dS81OGUzM2xIb3BGa3lCCkhxUWNQTEg4NzQwWU1qcmxESW1ORWlIQk1NRmZjdDBKbEtWRE1Yays2cFk4d3NqN0VhUFl6Y2JZZlVWaUZmbmYKZVFTMm12dWdXU0xQUGxvdUd4b1BtdUtlTTkxakovZENpOVVQMTdLdldXb1BIaHlJbWE3U1d4RWFZdG1LYVZrZQpPOFZjYjVRc3JaeHR3YXZtTlNyRUh4bFFwNnFCQ3dDYTJ5SjF4U1NCQ0dQZHBzd1VQdHpJWmlnN2VVMjRIWkxxCmdrOGJrVG5WT2REaU56MVR3N3RqMGhUeWpTMVoyMTExa1R4YUJlR2wxRGx0ZFJ5TDRSSktrYmVSbjRFUWkwMm4KN3loRHRSQkFXSjB5OFY1b1Y0ZUsrTVplaVJWd1RKUVZlZDJvNEV5ZXNIWjZjYU1XQ05hRGxKTXdMRm9Da3VXaApiSWdUdDY0SGYzOXhTZVZIMDBhWGNkT001TGFETzgybDVTbTVYK2J4NDZidTJxVkZzTk5NUTNHd0Zpai9RRzA1CnZOcWFIUVVva2ttOFB2NmtOblZ4L3lRcU5Qa0NBd0VBQWFOQ01FQXdEZ1lEVlIwUEFRSC9CQVFEQWdJRU1BOEcKQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGSXh2VTE4ZFczWnh5QjBzUzE2ZXoxNHB5Q3ViTUEwRwpDU3FHU0liM0RRRUJDd1VBQTRJQmdRQlptQkRFcmdIM1JVWlRUVTBKdzUrRTVBTFhvL29UeC9EQWoyT0lvbHp2CjVvYStpdzlEUUROYTZKYnNIemJraDBsVHVJSWV4ekVHVmZpaXMvb0YzaFV3RW1VbldOdlQyWEh5bDQ2UzFqUkgKRm5QL1FXdzdldHd0WjFvcUt2WGVUdzcraGpqb1BjSWRPanhUM0hSWHR6bndwbU5zVG03RzZlSGZLc1Q5UE5BcApjZm9VZFcxVEc3R0FDanB3SGlDaGhmeUZ3RldWUGVXUGF6Smp6ZXI1ZWZhbXVQWUphOURQa1d5LzE3UDg4Zkk4Ckp3dy9oV3BPOGh1L0tDTURSRGs0Tk5lYTdmWG51c0NQMXBaTUxIYnJsTDVqb0Q2NlVrNENBOG5KdlB0NUVjekEKODdtdURJd1FSS1lsT0grdUJPOFJCQWJZWVdQdjE2TTQvUFNFZlpKeDZnMWNtaXh3WHBwN2RELzhDWmJ4VFd1MQpBVkt1OFdaK29UZlloZy8rdTI0aDNFQnNrNStrRzQ1RlI0Rkc4WitKZGQyd0c0ZEs1c3h0K0FSSU1ldUc4TkJOCjJwWFhxZzlnS3R6eHhwNUp6cElHdUJjMlArNFBUWkxFNVVMQnJkeUZveExqQlVQaXgxY3dBY0hsZTVTTjRsaEQKSUhqN3VPTlFBRzhGQS8yZVJRQ3dIRTg9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K',
-                        clusterName: 'gke_learning-487000_us-central1_panda-gke-cluster',
-                        contextName: 'gke_learning-487000_us-central1_panda-gke-cluster',
-                        credentialsId: 'k8-cred',
-                        namespace: 'webapps',
-                        restrictKubeConfigAccess: false,
-                        serverUrl: 'https://34.57.72.69'
-                    ) {
-                        sh "kubectl get pods -n webapps"
-                        sh "kubectl get svc -n webapps"
+                        sh "mvn deploy -DskipTests"
                     }
                 }
             }
         }
     }
 
-    post {
+    stage('Build Docker Image') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh "docker build -t $IMAGE_NAME ."
+                    }
+                }
+            }
+        }
+    }
+
+    stage('Docker Image Scan') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                sh "trivy image --format table -o trivy-image-report.html $IMAGE_NAME"
+            }
+        }
+    }
+
+    stage('Push Docker Image') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh "docker push $IMAGE_NAME"
+                    }
+                }
+            }
+        }
+    }
+
+    stage('Deploy To Kubernetes') {
+        steps {
+            dir('FullStack-Blogging-App') {
+                withKubeConfig(
+                    credentialsId: 'k8-cred',
+                    namespace: 'webapps',
+                    serverUrl: 'https://34.57.72.69'
+                ) {
+                    sh "kubectl apply -f deployment-service.yml"
+                    sh "kubectl rollout restart deployment bloggingapp -n webapps"
+                }
+            }
+        }
+    }
+
+    stage('Verify Deployment') {
+        steps {
+            withKubeConfig(
+                credentialsId: 'k8-cred',
+                namespace: 'webapps',
+                serverUrl: 'https://34.57.72.69'
+            ) {
+                sh "kubectl get pods -n webapps"
+                sh "kubectl get svc -n webapps"
+            }
+        }
+    }
+}
+
+post {
     always {
         script {
             def jobName = env.JOB_NAME
@@ -154,29 +165,29 @@ pipeline {
             def bannerColor = pipelineStatus.toUpperCase() == 'SUCCESS' ? 'green' : 'red'
 
             def body = """
-                <html>
-                <body>
-                <div style="border: 4px solid ${bannerColor}; padding: 10px;">
-                <h2>${jobName} - Build ${buildNumber}</h2>
-                <div style="background-color: ${bannerColor}; padding: 10px;">
-                <h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
-                </div>
-                <p>Check the <a href="${BUILD_URL}">console output</a>.</p>
-                </div>
-                </body>
-                </html>
+            <html>
+            <body>
+            <div style="border: 4px solid ${bannerColor}; padding: 10px;">
+            <h2>${jobName} - Build ${buildNumber}</h2>
+            <div style="background-color: ${bannerColor}; padding: 10px;">
+            <h3 style="color: white;">Pipeline Status: ${pipelineStatus.toUpperCase()}</h3>
+            </div>
+            <p>Check the <a href="${BUILD_URL}">console output</a>.</p>
+            </div>
+            </body>
+            </html>
             """
 
-            emailext (
+            emailext(
                 subject: "${jobName} - Build ${buildNumber} - ${pipelineStatus.toUpperCase()}",
                 body: body,
                 to: 'amgothpandari6@gmail.com',
-                from: 'jenkins@example.com',
-                replyTo: 'jenkins@example.com',
                 mimeType: 'text/html',
                 attachmentsPattern: 'trivy-image-report.html'
             )
         }
-      }       
     }
+}
+```
+
 }
