@@ -75,25 +75,31 @@ pipeline {
         }
         stage('Build & Tag Docker Image') {
             steps {
-               script {
-                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                dir('FullStack-Blogging-App') {
+                    script {
+                        withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                             sh "docker build -t abrahimcse/bloggingapp:latest ."
+                        }
                     }
-               }
+                }
             }
         }
         stage('Docker Image Scan') {
             steps {
-                sh "trivy image --format table -o trivy-image-report.html abrahimcse/bloggingapp:latest "
+                dir('FullStack-Blogging-App') {
+                    sh "trivy image --format table -o trivy-image-report.html abrahimcse/bloggingapp:latest "
+                }
             }
         }
         stage('Push Docker Image') {
             steps {
-               script {
-                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                dir('FullStack-Blogging-App') {
+                    script {
+                        withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                             sh "docker push abrahimcse/bloggingapp:latest"
+                        }
                     }
-               }
+                }
             }
         }
         stage('Deploy To Kubernetes') {
